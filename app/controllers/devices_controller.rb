@@ -1,47 +1,44 @@
-# frozen_string_literal: true
-
-# DevicesController is a controller for managing devices and their readings.
 class DevicesController < ApplicationController
-  before_action :find_device, only: %i[latest_reading cumulative_count]
+  before_action :set_device, only: %i[readings latest_reading cumulative_count]
 
-  # In-memory storage
-  @@device_data = {}
-
+  # POST /devices/:id/readings
   def readings
-    device_id = params[:id]
-    readings = params[:readings]
+    readings_data = readings_params[:readings]
 
-    readings.each do |reading|
-      timestamp = reading['timestamp']
-      count = reading['count']
+    readings_data.each do |reading|
+      timestamp = reading[:timestamp]
+      count = reading[:count]
 
-      @@device_data[device_id] ||= {}
-
-      # Ignoring duplicate timestamps
-      @@device_data[device_id][timestamp] = count unless @@device_data[device_id].key?(timestamp)
+      # Ignore duplicate readings (by timestamp)
+      @device.readings[timestamp] = count unless @device.readings.key?(timestamp)
     end
 
     head :ok
   end
 
+  # GET /devices/:id/latest_reading
   def latest_reading
-    latest_timestamp = @device_data.keys.max
+    latest_timestamp = @device.readings.keys.max
+
     render json: { latest_timestamp: }
   end
 
+  # GET /devices/:id/cumulative_count
   def cumulative_count
-    cumulative_count = if @device_data.is_a?(Hash)
-                         @device_data.values.map(&:to_i).sum
-                       else
-                         0
-                       end
+    cumulative_count = @device.readings.values.map(&:to_i).sum
+
     render json: { cumulative_count: }
   end
 
   private
 
-  def find_device
-    @device_data = @@device_data[params[:id]]
-    render json: { error: 'Device not found' }, status: :not_found unless @device_data
+  # Method to find the device and initialize in-memory storage if needed
+  def set_device
+    @device = Device.find_or_initialize_by(id: params[:id])
+  end
+
+  # Strong parameters for readings
+  def readings_params
+    params.permit(readings: %i[timestamp count])
   end
 end
