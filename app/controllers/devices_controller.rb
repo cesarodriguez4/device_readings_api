@@ -30,7 +30,11 @@ class DevicesController < ApplicationController
   end
 
   def cumulative_count
-    cumulative_count = @device_data.values.sum
+    cumulative_count = if @device_data.is_a?(Hash)
+                         @device_data.values.map(&:to_i).sum
+                       else
+                         0
+                       end
     render json: { cumulative_count: }
   end
 
